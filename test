@@ -1,0 +1,87 @@
+import requests
+import json
+import time
+
+##Core Function
+def parseTime(ct):
+    t = time.localtime(float(ct))
+    year = t.tm_year
+    month = t.tm_mon
+    if(month<10):
+        month = '0'+str(month)
+    ym = str(year)+'-'+str(month)
+    return [year,t.tm_mon,ym]
+
+def parseLink(url):
+    list = str(url).split('/')
+    return list[-2]
+
+def checkTime(list,time):
+    for i in range(0,len(list)):
+        if list[i] !=None and 'date' in list[i]:
+            if list[i]['date'] != None:
+                if(list[i]['date'] == time):
+                    return i
+    return None
+
+#config
+url = 'https://api.instagram.com/v1/users/self/media/recent/?access_token=5424930418.4040e01.a06804f051954fd98ed5217c8ab3ed7c'
+filePath = '/Users/pc-heng/Documents/test.json'
+response = requests.get(url)
+j = json.loads(response.text)
+result = {'list': []}
+list = []
+
+ct = j['data'][0]['created_time']
+
+for i in j['data']:
+    created_time = i['created_time']
+    link = i['link']
+    type = i['type']
+    if (created_time != None):
+        timeTuple = parseTime(created_time)
+    else:
+        continue
+    if (link != None):
+        link = parseLink(link)
+
+    text = ""
+    src = ""
+    highSrc = ""
+    if 'caption' in i:
+        if i['caption'] != None:
+            if i['caption']['text'] != None:
+                text = i['caption']['text']
+    if 'images' in i:
+        if i['images'] != None and 'thumbnail' in i['images']:
+            if i['images']['thumbnail'] != None and 'url' in i['images']['thumbnail']:
+                if i['images']['thumbnail']['url'] != None:
+                    src = i['images']['thumbnail']['url']
+            if i['images'].has_key('standard_resolution') and i['images']['standard_resolution'] != None:
+                if i['images']['standard_resolution']['url'] != None:
+                    highSrc = i['images']['standard_resolution']['url']
+
+    index = checkTime(list,timeTuple[2])
+
+
+    if (index != None):
+        list[index]["arr"]["src"].append(src)
+        list[index]["arr"]["highSrc"].append(highSrc)
+        list[index]["arr"]["link"].append(link)
+        list[index]["arr"]["text"].append(text)
+        list[index]["arr"]["type"].append(type)
+    elif (index == None):
+        list.append({"date": timeTuple[2], "arr": {"year": timeTuple[0], "month": timeTuple[1]}})
+        index = len(list) - 1
+        list[index]["arr"].setdefault("src", [src, ])
+        list[index]["arr"].setdefault("highSrc", [highSrc, ])
+        list[index]["arr"].setdefault("link", [link, ])
+        list[index]["arr"].setdefault("text", [text, ])
+        list[index]["arr"].setdefault("type", [type, ])
+
+
+file = open(filePath,'w')
+file.write(json.dumps({"list":list},indent=4))
+file.close()
+print json.dumps({"list":list},indent=4)
+
